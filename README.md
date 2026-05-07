@@ -1,4 +1,9 @@
 # PhishGuard v3 
+![Python](https://img.shields.io/badge/Python-3.10-blue.svg)
+![Flask](https://img.shields.io/badge/Flask-2.2-lightgrey.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Status](https://img.shields.io/badge/Status-Active-success.svg)
+
 
 PhishGuard v3 is a machine learning–based phishing detection system built with **Random Forest** and deployed using a **Flask web application**.
 
