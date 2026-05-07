@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard — Real-Time URL Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #050810;
+    --panel:    #0c1120;
+    --border:   #1a2540;
+    --accent:   #00e5ff;
+    --green:    #22c55e;
+    --yellow:   #f59e0b;
+    --red:      #ef4444;
+    --muted:    #4a5568;
+    --text:     #e2e8f0;
+    --subtext:  #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header */
+  header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 8px;
+  }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), #0066cc);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  h1 span { color: var(--accent); }
+  .tagline { color: var(--subtext); font-size: 13px; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+  /* Model badge */
+  .meta-bar {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px; color: var(--subtext);
+  }
+  .badge .val { color: var(--accent); font-weight: 700; }
+
+  /* URL Input */
+  .scan-section { padding: 32px 0; }
+  .input-row {
+    display: flex; gap: 10px; align-items: stretch;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px;
+    transition: border-color 0.2s;
+  }
+  .input-row:focus-within { border-color: var(--accent); }
+  #urlInput {
+    flex: 1;
+    background: transparent;
+    border: none; outline: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  #urlInput::placeholder { color: var(--muted); }
+  #scanBtn {
+    background: var(--accent);
+    color: #000;
+    border: none; cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 14px;
+    padding: 10px 24px;
+    border-radius: 7px;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  #scanBtn:hover { opacity: 0.9; }
+  #scanBtn:active { transform: scale(0.97); }
+  #scanBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Example URLs */
+  .examples { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .ex-label { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .ex-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px; color: var(--subtext);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .ex-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Loader */
+  #loader {
+    display: none;
+    text-align: center; padding: 48px 0;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--subtext); }
+  .loader-step { margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+  /* Results */
+  #results { display: none; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+  /* Verdict Card */
+  .verdict-card {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    position: relative; overflow: hidden;
+  }
+  .verdict-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--verdict-color, var(--accent));
+  }
+  .verdict-row {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; flex-wrap: wrap; gap: 16px;
+  }
+  .verdict-label {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: var(--subtext); letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .verdict-value {
+    font-size: 36px; font-weight: 800;
+    color: var(--verdict-color, var(--text));
+    letter-spacing: -1px;
+  }
+  .score-ring {
+    position: relative; width: 90px; height: 90px;
+  }
+  .score-ring svg { width: 90px; height: 90px; transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+  .ring-fill { fill: none; stroke-width: 6; stroke-linecap: round;
+               stroke-dasharray: 220; transition: stroke-dashoffset 1s ease; }
+  .score-num {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--verdict-color);
+  }
+  .url-display {
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--subtext);
+    word-break: break-all;
+  }
+  .score-breakdown {
+    display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap;
+  }
+  .score-item { font-size: 12px; }
+  .score-item-label { color: var(--subtext); margin-bottom: 2px; }
+  .score-item-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+  /* Check cards grid */
+  .checks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .check-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+    animation: fadeIn 0.4s ease;
+  }
+  .check-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .check-title {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--subtext);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .check-badge {
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px; border-radius: 3px; font-weight: 700;
+  }
+  .badge-ok  { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-warn{ background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .badge-bad { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-info{ background: rgba(0,229,255,0.1);  color: var(--accent); }
+
+  .check-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+  .check-key { color: var(--subtext); }
+  .check-val { font-family: 'JetBrains Mono', monospace; color: var(--text); text-align: right; max-width: 60%; word-break: break-all; }
+
+  /* Feature table */
+  .features-section { margin-top: 4px; }
+  .section-title {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--subtext); margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+  .feat-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .feat-name { font-size: 11px; color: var(--subtext); }
+  .feat-val  { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+
+  /* Risk bar */
+  .risk-bar-wrap { margin-top: 16px; }
+  .risk-bar-track {
+    width: 100%; height: 6px;
+    background: var(--border); border-radius: 3px; overflow: hidden;
+  }
+  .risk-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  /* Error */
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px; padding: 16px 20px;
+    color: var(--red); font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <h1>Phish<span>Guard</span></h1>
+        <div class="tagline">// real-time url threat intelligence · no api key required</div>
+      </div>
+    </div>
+    <div class="meta-bar" id="metaBar">
+      <div class="badge">ENGINE <span class="val">Random Forest v3</span></div>
+      <div class="badge">CHECKS <span class="val">DNS · SSL · WHOIS · Redirects · Blacklist</span></div>
+      <div class="badge" id="accuracyBadge">STATUS <span class="val" style="color:var(--yellow)" id="modelStatus">loading…</span></div>
+    </div>
+  </header>
+
+  <!-- Scan Input -->
+  <section class="scan-section">
+    <div class="input-row">
+      <input id="urlInput" type="text" placeholder="https://suspicious-site.example.com/login?redirect=..." autocomplete="off" spellcheck="false">
+      <button id="scanBtn" onclick="scan()">⚡ SCAN</button>
+    </div>
+
+    <div class="examples">
+      <span class="ex-label">try:</span>
+      <button class="ex-btn" onclick="setUrl('http://paypa1-secure-login.tk/verify.php')">paypal phish</button>
+      <button class="ex-btn" onclick="setUrl('https://192.168.1.1/bank/login?id=admin&pass=')">IP login</button>
+      <button class="ex-btn" onclick="setUrl('http://amaz0n-account-suspended.xyz/reset')">amazon bait</button>
+      <button class="ex-btn" onclick="setUrl('https://google.com')">google (legit)</button>
+      <button class="ex-btn" onclick="setUrl('https://github.com')">github (legit)</button>
+    </div>
+  </section>
+
+  <!-- Loader -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="loader-text">Running 5 parallel checks…</div>
+    <div class="loader-step" id="loaderStep">Initialising threat analysis</div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="verdict-card" id="verdictCard">
+      <div class="verdict-row">
+        <div>
+          <div class="verdict-label">Threat Verdict</div>
+          <div class="verdict-value" id="verdictText">—</div>
+          <div class="url-display" id="urlDisplay"></div>
+          <div class="score-breakdown">
+            <div class="score-item">
+              <div class="score-item-label">ML Score</div>
+              <div class="score-item-val" id="mlScore">—</div>
+            </div>
+            <div class="score-item">
+              <div class="score-item-label">Real-Time Score</div>
+              <div class="score-item-val" id="rtScore">—</div>
+            </div>
+            <div class="score-item">
+              <div class="score-item-label">Final Risk</div>
+              <div class="score-item-val" id="finalScore">—</div>
+            </div>
+          </div>
+          <div class="risk-bar-wrap">
+            <div class="risk-bar-track">
+              <div class="risk-bar-fill" id="riskBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="score-ring">
+          <svg viewBox="0 0 90 90">
+            <circle class="ring-bg" cx="45" cy="45" r="35"/>
+            <circle class="ring-fill" id="ringFill" cx="45" cy="45" r="35" stroke-dashoffset="220"/>
+          </svg>
+          <div class="score-num" id="ringNum">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 Check Cards -->
+    <div class="checks-grid" id="checksGrid"></div>
+
+    <!-- Feature Table -->
+    <div class="features-section">
+      <div class="section-title">URL Feature Vector (20 signals)</div>
+      <div class="feat-grid" id="featGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STEPS = [
+  'Extracting 20 URL features…',
+  'Resolving DNS records…',
+  'Validating SSL certificate…',
+  'Checking WHOIS domain age…',
+  'Tracing redirect chain…',
+  'Querying OpenPhish blacklist…',
+  'Fusing ML + real-time scores…',
+];
+
+function setUrl(u) {
+  document.getElementById('urlInput').value = u;
+  document.getElementById('urlInput').focus();
+}
+
+let stepTimer;
+function startSteps() {
+  let i = 0;
+  const el = document.getElementById('loaderStep');
+  el.textContent = STEPS[0];
+  stepTimer = setInterval(() => {
+    i = (i + 1) % STEPS.length;
+    el.textContent = STEPS[i];
+  }, 900);
+}
+
+async function scan() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('loader').style.display = 'block';
+  document.getElementById('scanBtn').disabled = true;
+  startSteps();
+
+  try {
+    const res = await fetch('/scan', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url})
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderResults(data);
+  } catch(e) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('results').innerHTML =
+      `<div class="error-box">⚠ ${e.message}</div>`;
+    document.getElementById('results').style.display = 'block';
+  } finally {
+    clearInterval(stepTimer);
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('scanBtn').disabled = false;
+  }
+}
+
+function renderResults(data) {
+  const { risk, checks, features, url } = data;
+  const color = risk.color;
+
+  // Verdict card
+  const card = document.getElementById('verdictCard');
+  card.style.setProperty('--verdict-color', color);
+
+  document.getElementById('verdictText').textContent = risk.verdict;
+  document.getElementById('verdictText').style.color = color;
+  document.getElementById('urlDisplay').textContent = '↳ ' + url;
+  document.getElementById('mlScore').textContent  = risk.ml_score.toFixed(1) + '%';
+  document.getElementById('rtScore').textContent  = risk.rt_score.toFixed(1) + '%';
+  document.getElementById('finalScore').textContent = risk.final_score.toFixed(1) + '%';
+  document.getElementById('finalScore').style.color = color;
+
+  // Risk bar
+  const bar = document.getElementById('riskBar');
+  bar.style.background = color;
+  setTimeout(() => bar.style.width = risk.final_score + '%', 50);
+
+  // Ring
+  const ring = document.getElementById('ringFill');
+  ring.style.stroke = color;
+  const pct = risk.final_score / 100;
+  setTimeout(() => ring.style.strokeDashoffset = 220 - (220 * pct), 50);
+  document.getElementById('ringNum').textContent = Math.round(risk.final_score);
+  document.getElementById('ringNum').style.color = color;
+
+  // Check cards
+  const grid = document.getElementById('checksGrid');
+  grid.innerHTML = '';
+
+  const checkDefs = [
+    { key: 'blacklist', icon: '🚫', title: 'Blacklist (OpenPhish)',
+      rows: d => [
+        ['Status', d.status],
+        ['Source', d.source],
+        ['Risk', d.risk + '%'],
+      ],
+      badge: d => d.blacklisted ? ['BLACKLISTED','bad'] : ['CLEAN','ok']
+    },
+    { key: 'dns', icon: '🌐', title: 'DNS Resolution',
+      rows: d => [
+        ['Resolves', d.resolves ? 'Yes' : 'No'],
+        ['IP Address', d.ip || 'N/A'],
+        ['Status', d.status],
+        ['Risk', d.risk + '%'],
+      ],
+      badge: d => d.resolves ? (d.status==='ip_literal'?['IP LITERAL','warn']:['RESOLVES','ok']) : ['NO RESOLVE','bad']
+    },
+    { key: 'ssl', icon: '🔒', title: 'SSL Certificate',
+      rows: d => [
+        ['Valid', d.valid ? 'Yes' : 'No'],
+        ['Issuer', d.issuer || 'N/A'],
+        ['Days Left', d.days_left != null ? d.days_left + 'd' : 'N/A'],
+        ['Status', d.status],
+      ],
+      badge: d => d.status==='valid'?['VALID','ok']:d.status==='no_ssl'?['NO SSL','warn']:['INVALID','bad']
+    },
+    { key: 'redirects', icon: '↩️', title: 'Redirect Chain',
+      rows: d => [
+        ['Hops', d.hop_count],
+        ['Cross-Domain', d.cross_domain ? 'YES ⚠' : 'No'],
+        ['Final URL', (d.final_url||'').slice(0,40) + (d.final_url?.length>40?'…':'')],
+        ['Risk', d.risk + '%'],
+      ],
+      badge: d => d.cross_domain?['CROSS-DOMAIN','warn']:(d.hop_count>2?['MULTI-HOP','warn']:['DIRECT','ok'])
+    },
+    { key: 'whois', icon: '📅', title: 'WHOIS Domain Age',
+      rows: d => [
+        ['Created', d.created || 'Unknown'],
+        ['Age', d.age_days != null ? d.age_days + ' days' : 'Unknown'],
+        ['Status', d.status],
+        ['Risk', d.risk + '%'],
+      ],
+      badge: d => d.status==='new_domain'?['NEW DOMAIN','bad']:(d.age_days<90?['YOUNG','warn']:['ESTABLISHED','ok'])
+    },
+  ];
+
+  checkDefs.forEach(def => {
+    const d = checks[def.key];
+    const [bLabel, bClass] = def.badge(d);
+    const rows = def.rows(d).map(([k,v]) =>
+      `<div class="check-row"><span class="check-key">${k}</span><span class="check-val">${v}</span></div>`
+    ).join('');
+    grid.innerHTML += `
+      <div class="check-card">
+        <div class="check-header">
+          <div class="check-title">${def.icon} ${def.title}</div>
+          <span class="check-badge badge-${bClass}">${bLabel}</span>
+        </div>
+        ${rows}
+      </div>`;
+  });
+
+  // Features
+  const fg = document.getElementById('featGrid');
+  fg.innerHTML = '';
+  Object.entries(features).forEach(([k, v]) => {
+    let col = 'var(--text)';
+    if (k === 'has_https') col = v ? 'var(--green)' : 'var(--red)';
+    if (k === 'has_ip' && v) col = 'var(--red)';
+    if (k === 'suspicious_tld' && v) col = 'var(--red)';
+    if (k === 'brand_in_domain' && v) col = 'var(--yellow)';
+    fg.innerHTML += `
+      <div class="feat-item">
+        <span class="feat-name">${k}</span>
+        <span class="feat-val" style="color:${col}">${v}</span>
+      </div>`;
+  });
+
+  document.getElementById('results').style.display = 'block';
+}
+
+// Load model metadata from Flask /meta endpoint
+async function loadMeta() {
+  const statusEl = document.getElementById('modelStatus');
+  const barEl    = document.getElementById('accuracyBadge');
+  try {
+    const res  = await fetch('/meta');
+    if (!res.ok) throw new Error('no meta');
+    const meta = await res.json();
+    if (meta.accuracy) {
+      barEl.innerHTML =
+        `ACCURACY <span class="val" style="color:var(--green)">${(meta.accuracy*100).toFixed(1)}%</span>` +
+        ` &nbsp; AUC <span class="val" style="color:var(--green)">${meta.roc_auc.toFixed(3)}</span>`;
+    } else {
+      statusEl.textContent = 'train model first';
+    }
+  } catch {
+    statusEl.textContent = 'train model first';
+  }
+}
+
+// Enter key + boot
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') scan();
+  });
+  loadMeta();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "accuracy": 0.8587,
+  "roc_auc": 0.9377,
+  "cv_mean": 0.8622,
+  "cv_std": 0.0074,
+  "feature_names": [
+    "url_length",
+    "domain_length",
+    "has_https",
+    "has_ip",
+    "dot_count",
+    "hyphen_count",
+    "at_count",
+    "eq_count",
+    "amp_count",
+    "slash_count",
+    "subdomain_count",
+    "suspicious_tld",
+    "brand_in_domain",
+    "domain_entropy",
+    "path_depth",
+    "query_length",
+    "double_slash",
+    "has_hex",
+    "digit_ratio",
+    "url_entropy"
+  ],
+  "n_train": 9144,
+  "n_test": 2286
+}
