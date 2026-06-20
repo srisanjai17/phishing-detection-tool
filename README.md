@@ -1,17 +1,16 @@
-# PhishGuard v3 
+# Phishing Detection Tool
 ![Python](https://img.shields.io/badge/Python-3.10-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-2.2-lightgrey.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/Status-Active-success.svg)
+
 ## Demo Screenshot
 
-Here’s how PhishGuard v3 looks in action:
+Here's how Phishing Detection Tool looks in action:
 
-![PhishGuard Screenshot](images/screenshot.png)
+![Phishing Detection Tool Screenshot](images/screenshot.png)
 
-
-
-PhishGuard v3 is a machine learning–based phishing detection system built with **Random Forest** and deployed using a **Flask web application**.
+Phishing Detection Tool is a machine learning–based phishing detection system built with **Random Forest** and deployed using a **Flask web application**.
 
 ##  Features
 - Detects phishing URLs with high accuracy
@@ -30,8 +29,9 @@ PhishGuard v3 is a machine learning–based phishing detection system built with
 
 ## 🔧 Installation
 ```bash
-git clone https://github.com/srisanjai17/PhishGuard-v3.git
-cd PhishGuard-v3
+git clone https://github.com/srisanjai17/phishing-detection-tool.git
+cd phishing-detection-tool
 pip install -r requirements.txt
 python train_model.py
 python app.py
+```
